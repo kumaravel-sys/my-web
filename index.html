@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>VSE NSE Stock Trainer — Final</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{--bg:#f5f7fb;--card:#fff;--text:#111;--muted:#475569;--accent:#0f1724}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto, sans-serif;margin:0;padding:0;background:var(--bg);color:var(--text)}
+  header{background:var(--accent);color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center}
+  header h1{margin:0;font-size:18px}
+  .container{padding:20px;max-width:1200px;margin:20px auto;background:var(--card);border-radius:10px;box-shadow:0 6px 20px rgba(10,20,40,0.06)}
+  input,button,select{padding:10px;border-radius:6px;border:1px solid #cbd5e1;font-size:14px}
+  button{cursor:pointer;background:var(--accent);color:#fff;border:none}
+  .hidden{display:none}
+  .card{padding:12px;border-radius:8px;background:var(--card);box-shadow:0 4px 10px rgba(15,23,42,0.04);margin-bottom:12px}
+  .small{font-size:13px;color:var(--muted)}
+  .danger{color:#dc2626}
+  .search-suggestions{background:var(--card);border:1px solid #e2e8f0;margin-top:6px;max-height:260px;overflow:auto;border-radius:6px;position:absolute;z-index:40;width:calc(100% - 24px)}
+  .suggest-item{padding:8px;cursor:pointer;border-bottom:1px solid #f1f5f9}
+  .suggest-item:hover{background:#f3f7fb}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid #f1f5f9}
+  footer{text-align:center;padding:16px;color:var(--muted);font-size:13px;margin-top:20px}
+</style>
+</head>
+<body>
+<header>
+  <h1>VSE Stock Trainer — Final</h1>
+</header>
+
+<main class="container">
+
+  <!-- Common password -->
+  <section id="view-common" class="card">
+    <h2>Enter common password</h2>
+    <input id="commonInput" type="password" placeholder="Common password" style="width:100%;margin-bottom:8px" />
+    <div style="margin-top:8px">
+      <button id="commonBtn">Continue</button>
+      <span id="commonErr" class="small danger" style="margin-left:12px"></span>
+    </div>
+  </section>
+
+  <!-- Login -->
+  <section id="view-login" class="card hidden">
+    <h2>Login / Register</h2>
+    <input id="nameInput" placeholder="Full name (only on first register)" style="width:100%;margin-bottom:8px" />
+    <input id="emailInput" placeholder="Email" style="width:100%;margin-bottom:8px" />
+    <input id="passInput" type="password" placeholder="Password" style="width:100%;margin-bottom:8px" />
+    <div style="display:flex;gap:8px">
+      <button id="authBtn">Login / Register</button>
+    </div>
+    <p id="authMsg" class="small" style="margin-top:8px"></p>
+  </section>
+
+  <!-- Dashboard -->
+  <section id="view-dash" class="hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h2>Dashboard</h2>
+        <div class="small">User: <b id="labelName"></b> — <span id="labelEmail"></span></div>
+      </div>
+      <div><button id="btnLogout" style="background:#ef4444">Logout</button></div>
+    </div>
+
+    <div class="card" style="position:relative">
+      <input id="searchBox" placeholder="Search company — start typing (e.g., Tata)" style="width:100%;padding:10px" />
+      <div id="suggestBox" class="search-suggestions hidden"></div>
+    </div>
+
+    <div style="display:flex;gap:16px;margin-top:12px">
+      <div style="flex:1">
+        <div id="chartCard" class="card hidden">
+          <h3 id="chartTitle">Select a company</h3>
+          <div id="chartWrap" style="height:420px"></div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+            <div class="small">Live price: <b id="curPrice">-</b></div>
+            <div style="margin-left:auto">
+              <input id="qty" type="number" min="1" value="1" style="width:100px"/>
+              <button id="buyBtn">Buy</button>
+              <button id="sellBtn" style="background:#ef4444">Sell</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Portfolio</h3>
+          <div class="small">Balance: <b id="balanceDisplay">₹0</b></div>
+          <table id="holdingsTable"><thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>Price</th><th>Value</th></tr></thead><tbody></tbody></table>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Pending Orders</h3>
+          <table id="pendingTable"><thead><tr><th>Type</th><th>Symbol</th><th>Qty</th><th>Placed</th><th>Status</th></tr></thead><tbody></tbody></table>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Transactions</h3>
+          <table id="txTable"><thead><tr><th>Date</th><th>Type</th><th>Symbol</th><th>Qty</th><th>Price</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div style="width:360px">
+        <div id="adminPanel" class="card hidden">
+          <h3>Admin — Users</h3>
+          <table id="adminTable"><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Balance</th><th>Total</th></tr></thead><tbody></tbody></table>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Notes</h3>
+          <div class="small">
+            - Charts use TradingView. We map TwelveData symbol (like <code>TATAMOTORS.NS</code>) → <code>NSE:TATAMOTORS</code> for TradingView.<br>
+            - Live price updated every <b>3 seconds</b> from Twelve Data.<br>
+            - Pending orders auto-execute when market open (simulated check).
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>VSE Stock Trainer — Demo</footer>
+
+<script>
+/* Load TradingView script then set a flag */
+(function loadTV(cb){
+  const s = document.createElement('script');
+  s.src = "https://s3.tradingview.com/tv.js";
+  s.onload = cb;
+  s.onerror = ()=> console.warn('TradingView script failed to load');
+  document.head.appendChild(s);
+})(()=>{ window.TRADINGVIEW_LOADED = true; });
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+// ========== CONFIG (your provided values) ==========
+const firebaseConfig = {
+  apiKey: "AIzaSyBFLVuBT-sSdcq-MjiL5tB17mfeNpP2jN8",
+  authDomain: "vsestocktrainer-a5b04.firebaseapp.com",
+  projectId: "vsestocktrainer-a5b04",
+  storageBucket: "vsestocktrainer-a5b04.appspot.com",
+  messagingSenderId: "652083011735",
+  appId: "1:652083011735:web:3ab6396a3d5888abec49d2"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const TWELVE_KEY = "c933f15065e54a7b9d8908b084d72de1";
+const COMMON_PASS = "vse2k25";
+const ADMIN_EMAIL = "admin6@vse.com";
+const ADMIN_PASS = "adminvse2k25";
+
+// ========== DOM refs ==========
+const viewCommon = document.getElementById('view-common');
+const commonInput = document.getElementById('commonInput');
+const commonBtn = document.getElementById('commonBtn');
+const commonErr = document.getElementById('commonErr');
+
+const viewLogin = document.getElementById('view-login');
+const nameInput = document.getElementById('nameInput');
+const emailInput = document.getElementById('emailInput');
+const passInput = document.getElementById('passInput');
+const authBtn = document.getElementById('authBtn');
+const authMsg = document.getElementById('authMsg');
+
+const viewDash = document.getElementById('view-dash');
+const labelName = document.getElementById('labelName');
+const labelEmail = document.getElementById('labelEmail');
+const btnLogout = document.getElementById('btnLogout');
+
+const searchBox = document.getElementById('searchBox');
+const suggestBox = document.getElementById('suggestBox');
+
+const chartCard = document.getElementById('chartCard');
+const chartTitle = document.getElementById('chartTitle');
+const chartWrap = document.getElementById('chartWrap');
+const curPrice = document.getElementById('curPrice');
+const intervalSelect = null;
+
+const qtyInput = document.getElementById('qty');
+const buyBtn = document.getElementById('buyBtn');
+const sellBtn = document.getElementById('sellBtn');
+
+const balanceDisplay = document.getElementById('balanceDisplay');
+const holdingsTbody = document.querySelector('#holdingsTable tbody');
+const pendingTbody = document.querySelector('#pendingTable tbody');
+const txTbody = document.querySelector('#txTable tbody');
+
+const adminPanel = document.getElementById('adminPanel');
+const adminTbody = document.querySelector('#adminTable tbody');
+
+// ========== App state ==========
+let currentUser = null;
+let displayName = "";
+let balance = 50000;
+let holdings = {}; // sym -> { qty, avgPrice, currPrice }
+let pending = []; // pending orders
+let transactions = []; // history
+let currentSymbol = null;
+let tvWidget = null;
+let priceIntervalId = null;
+
+// ========== Common password ==========
+commonBtn.addEventListener('click', ()=> {
+  if(commonInput.value.trim() === COMMON_PASS){
+    viewCommon.classList.add('hidden');
+    viewLogin.classList.remove('hidden');
+    commonErr.textContent = "";
+  } else {
+    commonErr.textContent = "Wrong common password";
+  }
+});
+
+// ========== Auth (register/login) ==========
+authBtn.addEventListener('click', async ()=>{
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim();
+  const pwd = passInput.value.trim();
+  if(!email || !pwd){ authMsg.textContent = "Fill email & password"; return; }
+  authMsg.textContent = "Working...";
+  try {
+    // Try login
+    await signInWithEmailAndPassword(auth, email, pwd);
+    authMsg.textContent = "";
+  } catch(loginErr){
+    // Create account instead
+    try {
+      await createUserWithEmailAndPassword(auth, email, pwd);
+      // store user profile with name
+      const uid = auth.currentUser.uid;
+      await setDoc(doc(db,"users",uid), { name: name || email, email });
+      // create portfolio record
+      await setDoc(doc(db,"portfolios",uid), { balance, stocks: {}, pendingOrders: [], transactions: [] });
+      authMsg.textContent = "";
+    } catch(regErr){
+      authMsg.textContent = regErr.message;
+    }
+  }
+});
+
+// ========== Auth state change ==========
+onAuthStateChanged(auth, async (u)=>{
+  if(u){
+    currentUser = u;
+    // Show dashboard
+    viewLogin.classList.add('hidden');
+    viewDash.classList.remove('hidden');
+
+    // load profile name
+    const pDoc = await getDoc(doc(db,"users",u.uid));
+    if(pDoc.exists()) displayName = pDoc.data().name || u.email;
+    else {
+      // store minimal profile
+      displayName = u.email;
+      await setDoc(doc(db,"users",u.uid), { name: displayName, email: u.email });
+    }
+    labelName.textContent = displayName;
+    labelEmail.textContent = u.email;
+
+    if(u.email === ADMIN_EMAIL) adminPanel.classList.remove('hidden'); else adminPanel.classList.add('hidden');
+
+    // load portfolio
+    await loadPortfolio();
+    // attempt to execute pending (if market open)
+    await tryExecutePendingForAll();
+  } else {
+    currentUser = null;
+    viewDash.classList.add('hidden');
+    viewLogin.classList.remove('hidden');
+    stopPriceInterval();
+  }
+});
+
+btnLogout.addEventListener('click', async ()=> { await signOut(auth); });
+
+// ========== Load / Save portfolio ==========
+async function loadPortfolio(){
+  if(!currentUser) return;
+  const docRef = doc(db,"portfolios",currentUser.uid);
+  const snap = await getDoc(docRef);
+  if(snap.exists()){
+    const d = snap.data();
+    balance = d.balance ?? 50000;
+    holdings = d.stocks ?? {};
+    pending = d.pendingOrders ?? [];
+    transactions = d.transactions ?? [];
+  } else {
+    balance = 50000; holdings = {}; pending = []; transactions = [];
+    await setDoc(docRef, { balance, stocks: {}, pendingOrders: [], transactions: [] });
+  }
+  refreshHoldingPrices();
+  renderAll();
+}
+
+async function savePortfolio(){
+  if(!currentUser) return;
+  await setDoc(doc(db,"portfolios",currentUser.uid), {
+    balance, stocks: holdings, pendingOrders: pending, transactions
+  });
+}
+
+// ========== UI render ==========
+function renderAll(){
+  balanceDisplay.textContent = "₹" + Number(balance).toLocaleString('en-IN', { maximumFractionDigits:2 });
+  // holdings
+  holdingsTbody.innerHTML = "";
+  for(const sym in holdings){
+    const s = holdings[sym];
+    const price = s.currPrice ?? 0;
+    const value = price * s.qty;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${sym}</td><td>${s.qty}</td><td>${Number(s.avgPrice).toFixed(2)}</td><td>${price?Number(price).toFixed(2):'-'}</td><td>${Number(value).toFixed(2)}</td>`;
+    holdingsTbody.appendChild(tr);
+  }
+  // pending
+  pendingTbody.innerHTML = "";
+  pending.forEach(p=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${p.type}</td><td>${p.symbol}</td><td>${p.qty}</td><td>${new Date(p.placedAt).toLocaleString()}</td><td>${p.status}</td>`;
+    pendingTbody.appendChild(tr);
+  });
+  // transactions
+  txTbody.innerHTML = "";
+  transactions.slice().reverse().forEach(tx=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${tx.date}</td><td>${tx.type}</td><td>${tx.symbol}</td><td>${tx.qty}</td><td>${Number(tx.price).toFixed(2)}</td>`;
+    txTbody.appendChild(tr);
+  });
+}
+
+// ========== Search (autocomplete using Twelve Data) ==========
+let searchTimer = null;
+searchBox.addEventListener('input', ()=>{
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(async ()=>{
+    const q = searchBox.value.trim();
+    if(!q){ suggestBox.classList.add('hidden'); return; }
+    try{
+      // symbol_search with exchange filter
+      const res = await fetch(`https://api.twelvedata.com/symbol_search?symbol=${encodeURIComponent(q)}&exchange=NSE&apikey=${TWELVE_KEY}`);
+      const j = await res.json();
+      const list = j.data || [];
+      if(list.length === 0){ suggestBox.innerHTML = `<div class="small">No results</div>`; suggestBox.classList.remove('hidden'); return; }
+      // show those whose name starts with query first
+      const ql = q.toLowerCase();
+      list.sort((a,b)=> ((a.name||'').toLowerCase().indexOf(ql) - (b.name||'').toLowerCase().indexOf(ql)));
+      suggestBox.innerHTML = list.slice(0,30).map(x=>`<div class="suggest-item" data-symbol="${x.symbol}" data-name="${x.name}">${x.name} — ${x.symbol}</div>`).join('');
+      suggestBox.classList.remove('hidden');
+    }catch(e){ suggestBox.innerHTML = `<div class="small danger">Search failed</div>`; suggestBox.classList.remove('hidden'); }
+  }, 250);
+});
+
+suggestBox.addEventListener('click', async (ev)=>{
+  const it = ev.target.closest('.suggest-item');
+  if(!it) return;
+  const sym = it.getAttribute('data-symbol'); // e.g., TATAMOTORS.NS
+  const nm = it.getAttribute('data-name');
+  searchBox.value = `${nm} — ${sym}`;
+  suggestBox.classList.add('hidden');
+  await openSymbol(sym, nm);
+});
+
+// ========== Helpers for TradingView symbol mapping ==========
+function toTradingViewSymbol(twelveSymbol){
+  // Twelve Data: "TATAMOTORS.NS" -> TradingView: "NSE:TATAMOTORS"
+  if(!twelveSymbol) return null;
+  if(twelveSymbol.endsWith('.NS')) return 'NSE:' + twelveSymbol.replace('.NS','');
+  // If TwelveData gave plain symbol w/out suffix, treat as NSE
+  return 'NSE:' + twelveSymbol.replace('.NS','');
+}
+
+// ========== Chart + live price ==========
+function ensureTVLoaded(){
+  return new Promise((res)=>{
+    if(window.TRADINGVIEW_LOADED) return res();
+    const t = setInterval(()=>{ if(window.TRADINGVIEW_LOADED){ clearInterval(t); res(); } },100);
+    // timeout after 10s
+    setTimeout(()=>{ clearInterval(t); res(); },10000);
+  });
+}
+
+async function openSymbol(sym, name){
+  currentSymbol = sym;
+  chartCard.classList.remove('hidden');
+  chartTitle.textContent = `${name} — ${sym} (Live)`;
+  const tvSym = toTradingViewSymbol(sym);
+  // fetch initial price
+  await refreshPriceForSymbol(sym);
+  // create widget safely
+  await ensureTVLoaded();
+  // remove old widget content
+  chartWrap.innerHTML = '';
+  try{
+    new TradingView.widget({
+      width: "100%",
+      height: 420,
+      symbol: tvSym,
+      interval: "5",
+      timezone: "Asia/Kolkata",
+      theme: "light",
+      style: "1",
+      locale: "en",
+      container_id: "chartWrap"
+    });
+  }catch(err){
+    console.warn('TV widget err', err);
+  }
+  startPriceInterval(sym);
+}
+
+async function refreshPriceForSymbol(sym){
+  try{
+    const r = await fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(sym)}&apikey=${TWELVE_KEY}`);
+    const j = await r.json();
+    if(j.price){
+      curPrice.textContent = "₹" + Number(j.price).toFixed(2);
+      if(holdings[sym]) holdings[sym].currPrice = parseFloat(j.price);
+      renderAll();
+    }
+  }catch(e){ console.warn('price err', e); }
+}
+
+function startPriceInterval(sym){
+  stopPriceInterval();
+  // initial fetch already done by openSymbol
+  priceIntervalId = setInterval(()=> refreshPriceForSymbol(sym), 3000);
+}
+function stopPriceInterval(){ if(priceIntervalId){ clearInterval(priceIntervalId); priceIntervalId = null; } }
+
+// ========== Buy / Sell / Transactions / Pending Orders ==========
+function isMarketOpenIST(){
+  // Check IST market 09:15 - 15:30, weekdays
+  const now = new Date();
+  // get IST time by offset
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const ist = new Date(utc + (5.5 * 3600000));
+  const day = ist.getDay(); if(day===0 || day===6) return false;
+  const minutes = ist.getHours()*60 + ist.getMinutes();
+  const open = 9*60 + 15; const close = 15*60 + 30;
+  return minutes >= open && minutes <= close;
+}
+
+async function placeOrder(type, symbol, qty){
+  if(!symbol || !qty || qty<=0) return alert('Invalid order');
+  // fetch live price
+  let price = null;
+  try{ const r = await fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbol)}&apikey=${TWELVE_KEY}`); const j = await r.json(); if(j.price) price = parseFloat(j.price); } catch(e){ console.warn('price fetch err', e); }
+  const placedAt = Date.now();
+  if(!isMarketOpenIST()){
+    // pending
+    pending.push({ type, symbol, qty, placedAt, status: 'PENDING', requestedPrice: price });
+    transactions.push({ date: new Date(placedAt).toLocaleString(), type, symbol, qty, price: price ?? 0, status: 'PENDING' });
+    await savePortfolio();
+    renderAll();
+    return alert('Market closed — order saved pending');
+  }
+  // execute immediately
+  if(type === 'BUY'){
+    if(price === null) return alert('Price unavailable');
+    const cost = price * qty;
+    if(cost > balance) return alert('Insufficient balance');
+    balance -= cost;
+    if(!holdings[symbol]) holdings[symbol] = { qty:0, avgPrice:0, currPrice:price };
+    const h = holdings[symbol];
+    const newQty = h.qty + qty;
+    h.avgPrice = ((h.avgPrice*h.qty) + (price*qty)) / newQty;
+    h.qty = newQty; h.currPrice = price;
+    transactions.push({ date: new Date(placedAt).toLocaleString(), type: 'BUY', symbol, qty, price, status: 'EXECUTED' });
+  } else if(type === 'SELL'){
+    const h = holdings[symbol];
+    if(!h || h.qty < qty) return alert('Not enough holdings');
+    if(price === null) return alert('Price unavailable');
+    h.qty -= qty;
+    balance += price * qty;
+    h.currPrice = price;
+    transactions.push({ date: new Date(placedAt).toLocaleString(), type: 'SELL', symbol, qty, price, status: 'EXECUTED' });
+    if(h.qty === 0) delete holdings[symbol];
+  }
+  await savePortfolio();
+  renderAll();
+}
+
+// wire buy/sell buttons
+buyBtn.addEventListener('click', ()=> placeOrder('BUY', currentSymbol, Number(qtyInput.value || qtyInput.value)));
+sellBtn.addEventListener('click', ()=> placeOrder('SELL', currentSymbol, Number(qtyInput.value || qtyInput.value)));
+
+// ========== Process pending orders when market opens ==========
+async function tryExecutePendingForAll(){
+  // If app user is admin, run a simple check for all users' pending orders and execute if market open
+  // For simplicity, we will execute pending only for the currently logged-in user here
+  if(!currentUser) return;
+  if(!isMarketOpenIST()) return;
+  if(!pending || pending.length===0) return;
+  // iterate backwards because we may remove executed
+  for(let i = pending.length - 1; i >= 0; i--){
+    const po = pending[i];
+    try{
+      const r = await fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(po.symbol)}&apikey=${TWELVE_KEY}`);
+      const j = await r.json();
+      const price = j.price ? parseFloat(j.price) : null;
+      if(price === null) continue;
+      if(po.type === 'BUY'){
+        const cost = price * po.qty;
+        if(balance >= cost){
+          balance -= cost;
+          if(!holdings[po.symbol]) holdings[po.symbol] = { qty:0, avgPrice:0, currPrice:price };
+          const h = holdings[po.symbol];
+          const newQty = h.qty + po.qty;
+          h.avgPrice = ((h.avgPrice*h.qty) + (price*po.qty)) / newQty;
+          h.qty = newQty; h.currPrice = price;
+          transactions.push({ date: new Date().toLocaleString(), type:'BUY', symbol:po.symbol, qty:po.qty, price, status:'EXECUTED' });
+          pending.splice(i,1);
+        }
+      } else if(po.type === 'SELL'){
+        const h = holdings[po.symbol];
+        if(h && h.qty >= po.qty){
+          h.qty -= po.qty;
+          balance += price * po.qty;
+          h.currPrice = price;
+          transactions.push({ date: new Date().toLocaleString(), type:'SELL', symbol:po.symbol, qty:po.qty, price, status:'EXECUTED' });
+          if(h.qty === 0) delete holdings[po.symbol];
+          pending.splice(i,1);
+        }
+      }
+    }catch(e){ console.warn('pending exec err', e); }
+  }
+  await savePortfolio();
+  renderAll();
+}
+
+// schedule checking pending every minute
+setInterval(()=>{ if(currentUser) tryExecutePendingForAll(); }, 60*1000);
+
+// ========== Refresh Prices for holdings ==========
+async function refreshHoldingPrices(){
+  const syms = Object.keys(holdings);
+  if(syms.length === 0) return;
+  await Promise.all(syms.map(async sym=>{
+    try{ const r = await fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(sym)}&apikey=${TWELVE_KEY}`); const j = await r.json(); if(j.price) holdings[sym].currPrice = parseFloat(j.price); }catch(e){ console.warn('refresh err', e); }
+  }));
+  renderAll();
+}
+
+// ========== ADMIN PANEL ==========
+document.getElementById('btn-open-admin')?.addEventListener('click', async ()=>{
+  // open admin view
+  viewDash.classList.add('hidden');
+  viewCommon.classList.add('hidden');
+  document.getElementById('view-admin').classList.remove('hidden');
+  // show users
+  const snaps = await getDocs(collection(db,'portfolios'));
+  adminTbody.innerHTML = "";
+  let i = 1;
+  for(const s of snaps.docs){
+    const emailOrUid = s.id;
+    const data = s.data();
+    // Try to fetch name from users collection
+    let name = "-";
+    try{
+      const userDoc = await getDoc(doc(db,'users',emailOrUid));
+      if(userDoc.exists()) name = userDoc.data().name || emailOrUid;
+    }catch(e){}
+    // compute holdings value
+    let holdingsVal = 0;
+    for(const sym in (data.stocks||{})){
+      const st = data.stocks[sym];
+      holdingsVal += (st.currPrice||0) * (st.qty||0);
+    }
+    const total = (data.balance||0) + holdingsVal;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i++}</td><td>${name}</td><td>${emailOrUid}</td><td>${Number(data.balance||0).toFixed(2)}</td><td>${Number(total).toFixed(2)}</td><td>${(Number(total) - 50000).toFixed(2)}</td>`;
+    adminTbody.appendChild(tr);
+    // click to open modal with details (not implemented here to keep single-file concise)
+  }
+});
+
+document.getElementById('btn-admin-back')?.addEventListener('click', ()=>{
+  document.getElementById('view-admin').classList.add('hidden');
+  viewDash.classList.remove('hidden');
+});
+
+// ========== Window unload cleanup ==========
+window.addEventListener('beforeunload', ()=>{ stopPriceInterval(); });
+
+</script>
+</body>
+</html>
